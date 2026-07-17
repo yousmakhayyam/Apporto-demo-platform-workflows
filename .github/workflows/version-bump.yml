@@ -1,0 +1,53 @@
+﻿name: Central Version Bump
+
+on:
+  workflow_call:
+    inputs:
+      cluster_name:
+        description: 'Target Cluster (e.g., primary-01)'
+        required: true
+        type: string
+      tenant_id:
+        description: 'Tenant ID (e.g., uco)'
+        required: true
+        type: string
+      app_name:
+        description: 'App Name (e.g., tenant-api)'
+        required: true
+        type: string
+      new_version:
+        description: 'New image tag'
+        required: true
+        type: string
+    secrets:
+      GITOPS_PAT:
+        required: true
+
+jobs:
+  update-values:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout GitOps Repo
+        uses: actions/checkout@v3
+        with:
+          repository: yousmakhayyam/Apporto-demo-k8s-gitops
+          token: ${{ secrets.GITOPS_PAT }}
+          fetch-depth: 0
+
+      - name: Install yq
+        run: |
+          sudo snap install yq || wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/local/bin/yq && chmod +x /usr/local/bin/yq
+
+      - name: Update image tag
+        run: |
+          FILE_PATH="tenants/${{ inputs.cluster_name }}/${{ inputs.tenant_id }}/${{ inputs.app_name }}/values.yaml"
+          yq eval '.image.tag = "${{ inputs.new_version }}"' $FILE_PATH -i
+
+      - name: Commit and Push
+        run: |
+          git config user.name "GitHub Actions Bot"
+          git config user.email "actions@github.com"
+          FILE_PATH="tenants/${{ inputs.cluster_name }}/${{ inputs.tenant_id }}/${{ inputs.app_name }}/values.yaml"
+          git add $FILE_PATH
+          git commit -m "bump: cluster-${{ inputs.cluster_name }} tenant-${{ inputs.tenant_id }} app-${{ inputs.app_name }} to ${{ inputs.new_version }}" || echo "No changes"
+          git push origin main
