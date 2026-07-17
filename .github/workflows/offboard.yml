@@ -1,0 +1,44 @@
+name: Offboard Tenant (Soft Delete)
+
+on:
+  workflow_dispatch:
+    inputs:
+      cluster_name:
+        description: 'Cluster Name'
+        required: true
+        default: 'primary-01'
+      tenant_id:
+        description: 'Tenant ID to remove'
+        required: true
+
+jobs:
+  offboard:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout GitOps Repo
+        uses: actions/checkout@v3
+        with:
+          repository: yousmakhayyam/Apporto-demo-k8s-gitops
+          token: ${{ secrets.GITOPS_PAT }}
+          fetch-depth: 0
+
+      - name: Archive Tenant (Soft Delete)
+        run: |
+          CLUSTER="${{ inputs.cluster_name }}"
+          TENANT="${{ inputs.tenant_id }}"
+          
+          # Archive folder banayein agar nahi hai
+          mkdir -p archived/$CLUSTER
+          
+          # Tenant ko archive mein move karein (Delete nahi, Recovery possible)
+          mv tenants/$CLUSTER/$TENANT archived/$CLUSTER/ || echo "Tenant folder not found, maybe already archived."
+          
+          echo "✅ Tenant $TENANT archived successfully!"
+
+      - name: Commit and Push
+        run: |
+          git config user.name "GitHub Actions Bot"
+          git config user.email "actions@github.com"
+          git add -A
+          git commit -m "offboard: tenant-${{ inputs.tenant_id }} (archived)"
+          git push origin main

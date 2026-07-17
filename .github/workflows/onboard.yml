@@ -1,0 +1,55 @@
+name: Onboard New Tenant
+
+on:
+  workflow_dispatch:
+    inputs:
+      cluster_name:
+        description: 'Target Cluster (e.g., primary-01)'
+        required: true
+        default: 'primary-01'
+      new_tenant_id:
+        description: 'New Tenant ID (e.g., harvard)'
+        required: true
+      domain:
+        description: 'Domain (e.g., harvard.apporto.com)'
+        required: true
+
+jobs:
+  onboard:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout GitOps Repo
+        uses: actions/checkout@v3
+        with:
+          repository: yousmakhayyam/Apporto-demo-k8s-gitops
+          token: ${{ secrets.GITOPS_PAT }}  # Same PAT jo pehle use kiya
+          fetch-depth: 0
+
+      - name: Create Tenant from Templates
+        run: |
+          CLUSTER="${{ inputs.cluster_name }}"
+          TENANT="${{ inputs.new_tenant_id }}"
+          
+          # Folder banayein
+          mkdir -p tenants/$CLUSTER/$TENANT
+          
+          # 3 apps ki templates copy karein
+          cp -r tenants/_templates/tenant-api tenants/$CLUSTER/$TENANT/
+          cp -r tenants/_templates/tenant-app tenants/$CLUSTER/$TENANT/
+          cp -r tenants/_templates/tenant-dragonfly tenants/$CLUSTER/$TENANT/
+          
+          # Placeholder ko actual tenant ID se replace karein
+          find tenants/$CLUSTER/$TENANT -type f -name "*.yaml" -exec sed -i "s/TENANT_PLACEHOLDER/$TENANT/g" {} \;
+          
+          # Domain replace karein (tenant-app mein)
+          sed -i "s/TENANT_PLACEHOLDER\.apporto\.local/${{ inputs.domain }}/g" tenants/$CLUSTER/$TENANT/tenant-app/values.yaml
+          
+          echo "✅ Tenant $TENANT onboarded successfully!"
+
+      - name: Commit and Push
+        run: |
+          git config user.name "GitHub Actions Bot"
+          git config user.email "actions@github.com"
+          git add tenants/${{ inputs.cluster_name }}/${{ inputs.new_tenant_id }}
+          git commit -m "onboard: tenant-${{ inputs.new_tenant_id }} on cluster-${{ inputs.cluster_name }}"
+          git push origin main
