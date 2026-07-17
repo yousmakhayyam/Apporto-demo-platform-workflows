@@ -1,4 +1,4 @@
-﻿name: Central Version Bump
+name: Central Version Bump
 
 on:
   workflow_call:
@@ -36,7 +36,9 @@ jobs:
 
       - name: Install yq
         run: |
-          sudo snap install yq || wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/local/bin/yq && chmod +x /usr/local/bin/yq
+          sudo wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/local/bin/yq
+          sudo chmod +x /usr/local/bin/yq
+          sudo ln -s /usr/local/bin/yq /usr/bin/yq
 
       - name: Update image tag
         run: |
