@@ -1,4 +1,4 @@
-name: Version Bump
+name: Rollback Tenant
 
 on:
   workflow_dispatch:
@@ -20,22 +20,22 @@ on:
           - primary-02
           - satellite-01
       tenant:
-        description: 'Tenant ID (e.g., uco)'
+        description: 'Tenant ID'
         required: true
       app:
-        description: 'App to bump'
+        description: 'App to rollback'
         required: true
         type: choice
         options:
           - tenant-api
           - tenant-app
           - tenant-dragonfly
-      version:
-        description: 'New image tag'
+      commit_to_revert:
+        description: 'Commit SHA to revert to'
         required: true
 
 jobs:
-  bump:
+  rollback:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout GitOps Repo
@@ -43,13 +43,12 @@ jobs:
         with:
           repository: yousmakhayyam/Apporto-demo-k8s-gitops
           token: ${{ secrets.GITOPS_PAT }}
+          fetch-depth: 0
 
-      - name: Update Values
+      - name: Revert Commit
         run: |
+          git revert --no-commit ${{ inputs.commit_to_revert }}..HEAD
           FILE="tenants/${{ inputs.region }}/${{ inputs.cluster }}/${{ inputs.tenant }}/${{ inputs.app }}/values.yaml"
-          yq eval '.image.tag = "${{ inputs.version }}"' $FILE -i
-          git config user.name "GitHub Actions Bot"
-          git config user.email "actions@github.com"
           git add $FILE
-          git commit -m "bump: region-${{ inputs.region }} cluster-${{ inputs.cluster }} tenant-${{ inputs.tenant }} app-${{ inputs.app }} to ${{ inputs.version }}"
+          git commit -m "rollback: region-${{ inputs.region }} cluster-${{ inputs.cluster }} tenant-${{ inputs.tenant }} app-${{ inputs.app }}"
           git push origin main

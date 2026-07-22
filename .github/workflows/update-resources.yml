@@ -1,31 +1,42 @@
-name: Update Tenant Resources (CPU/Memory)
+name: Update Resources
 
 on:
   workflow_dispatch:
     inputs:
-      cluster_name:
-        description: 'Cluster'
+      region:
+        description: 'Select Region'
         required: true
-        default: 'primary-01'
-      tenant_id:
-        description: 'Tenant'
+        type: choice
+        options:
+          - us
+          - uk
+          - eu
+      cluster:
+        description: 'Select Cluster'
         required: true
-        default: 'uco'
-      app_name:
-        description: 'App (tenant-api, tenant-app, tenant-dragonfly)'
+        type: choice
+        options:
+          - primary-01
+          - primary-02
+          - satellite-01
+      tenant:
+        description: 'Tenant ID'
+        required: true
+      app:
+        description: 'App to update'
         required: true
         type: choice
         options:
           - tenant-api
           - tenant-app
           - tenant-dragonfly
-      memory_limit:
-        description: 'New Memory Limit (e.g., 2Gi, 4Gi)'
+      memory:
+        description: 'Memory Limit (e.g., 2Gi, 4Gi)'
         required: true
         default: '2Gi'
 
 jobs:
-  update-resources:
+  update:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout GitOps Repo
@@ -33,24 +44,13 @@ jobs:
         with:
           repository: yousmakhayyam/Apporto-demo-k8s-gitops
           token: ${{ secrets.GITOPS_PAT }}
-          fetch-depth: 0
 
-      - name: Install yq
+      - name: Update Memory
         run: |
-          sudo wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/local/bin/yq
-          sudo chmod +x /usr/local/bin/yq
-
-      - name: Update Memory Limit
-        run: |
-          FILE_PATH="tenants/${{ inputs.cluster_name }}/${{ inputs.tenant_id }}/${{ inputs.app_name }}/values.yaml"
-          yq eval '.resources.limits.memory = "${{ inputs.memory_limit }}"' $FILE_PATH -i
-          echo "✅ Memory updated to ${{ inputs.memory_limit }}"
-
-      - name: Commit and Push
-        run: |
+          FILE="tenants/${{ inputs.region }}/${{ inputs.cluster }}/${{ inputs.tenant }}/${{ inputs.app }}/values.yaml"
+          yq eval '.resources.limits.memory = "${{ inputs.memory }}"' $FILE -i
           git config user.name "GitHub Actions Bot"
           git config user.email "actions@github.com"
-          FILE_PATH="tenants/${{ inputs.cluster_name }}/${{ inputs.tenant_id }}/${{ inputs.app_name }}/values.yaml"
-          git add $FILE_PATH
-          git commit -m "resource: cluster-${{ inputs.cluster_name }} tenant-${{ inputs.tenant_id }} app-${{ inputs.app_name }} memory to ${{ inputs.memory_limit }}"
+          git add $FILE
+          git commit -m "resource: region-${{ inputs.region }} cluster-${{ inputs.cluster }} tenant-${{ inputs.tenant }} app-${{ inputs.app }} memory to ${{ inputs.memory }}"
           git push origin main

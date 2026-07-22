@@ -1,0 +1,39 @@
+name: List All Tenants
+
+on:
+  workflow_dispatch:
+    inputs:
+      region:
+        description: 'Select Region (or all)'
+        required: true
+        type: choice
+        options:
+          - us
+          - uk
+          - eu
+          - all
+
+jobs:
+  list:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout GitOps Repo
+        uses: actions/checkout@v3
+        with:
+          repository: yousmakhayyam/Apporto-demo-k8s-gitops
+          token: ${{ secrets.GITOPS_PAT }}
+
+      - name: List Tenants
+        run: |
+          if [ "${{ inputs.region }}" == "all" ]; then
+            echo "=== ALL REGIONS ==="
+            ls -la tenants/
+            echo ""
+            for region in tenants/*; do
+              echo "=== $(basename $region) ==="
+              ls -la $region/primary-01/ 2>/dev/null || echo "No primary-01 in $(basename $region)"
+            done
+          else
+            echo "=== Region: ${{ inputs.region }} ==="
+            ls -la tenants/${{ inputs.region }}/primary-01/ 2>/dev/null || echo "No tenants found"
+          fi
