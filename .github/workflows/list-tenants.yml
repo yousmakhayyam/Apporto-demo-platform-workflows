@@ -23,17 +23,36 @@ jobs:
           repository: yousmakhayyam/Apporto-demo-k8s-gitops
           token: ${{ secrets.GITOPS_PAT }}
 
-      - name: List Tenants
+      - name: List Tenants and Generate Summary
         run: |
+          echo "# 📋 Tenant List" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
           if [ "${{ inputs.region }}" == "all" ]; then
-            echo "=== ALL REGIONS ==="
-            ls -la tenants/
-            echo ""
+            echo "## 🌍 All Regions" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "| Region | Cluster | Tenants |" >> $GITHUB_STEP_SUMMARY
+            echo "|--------|---------|---------|" >> $GITHUB_STEP_SUMMARY
+            
             for region in tenants/*; do
-              echo "=== $(basename $region) ==="
-              ls -la $region/primary-01/ 2>/dev/null || echo "No primary-01 in $(basename $region)"
+              region_name=$(basename $region)
+              if [ -d "$region/primary-01" ]; then
+                tenants=$(ls $region/primary-01/ 2>/dev/null | paste -sd "," -)
+                echo "| $region_name | primary-01 | $tenants |" >> $GITHUB_STEP_SUMMARY
+              fi
             done
           else
-            echo "=== Region: ${{ inputs.region }} ==="
-            ls -la tenants/${{ inputs.region }}/primary-01/ 2>/dev/null || echo "No tenants found"
+            echo "## 🎯 Region: ${{ inputs.region }}" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "| Cluster | Tenants |" >> $GITHUB_STEP_SUMMARY
+            echo "|---------|---------|" >> $GITHUB_STEP_SUMMARY
+            
+            if [ -d "tenants/${{ inputs.region }}/primary-01" ]; then
+              tenants=$(ls tenants/${{ inputs.region }}/primary-01/ 2>/dev/null | paste -sd "," -)
+              echo "| primary-01 | $tenants |" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "| primary-01 | No tenants found |" >> $GITHUB_STEP_SUMMARY
+            fi
           fi
+          
+          echo "✅ Tenant list generated successfully!"
