@@ -3,12 +3,24 @@ name: Onboard New Tenant
 on:
   workflow_dispatch:
     inputs:
-      cluster_name:
-        description: 'Target Cluster (e.g., primary-01)'
+      region:
+        description: 'Select Region'
         required: true
-        default: 'primary-01'
-      new_tenant_id:
-        description: 'New Tenant ID (e.g., harvard)'
+        type: choice
+        options:
+          - us
+          - uk
+          - eu
+      cluster:
+        description: 'Select Cluster'
+        required: true
+        type: choice
+        options:
+          - primary-01
+          - primary-02
+          - satellite-01
+      tenant_id:
+        description: 'Tenant ID (e.g., harvard)'
         required: true
       domain:
         description: 'Domain (e.g., harvard.apporto.com)'
@@ -22,34 +34,31 @@ jobs:
         uses: actions/checkout@v3
         with:
           repository: yousmakhayyam/Apporto-demo-k8s-gitops
-          token: ${{ secrets.GITOPS_PAT }}  # Same PAT jo pehle use kiya
-          fetch-depth: 0
+          token: ${{ secrets.GITOPS_PAT }}
 
-      - name: Create Tenant from Templates
+      - name: Create Tenant Structure
         run: |
-          CLUSTER="${{ inputs.cluster_name }}"
-          TENANT="${{ inputs.new_tenant_id }}"
-          
-          # Folder banayein
-          mkdir -p tenants/$CLUSTER/$TENANT
-          
-          # 3 apps ki templates copy karein
-          cp -r tenants/_templates/tenant-api tenants/$CLUSTER/$TENANT/
-          cp -r tenants/_templates/tenant-app tenants/$CLUSTER/$TENANT/
-          cp -r tenants/_templates/tenant-dragonfly tenants/$CLUSTER/$TENANT/
-          
-          # Placeholder ko actual tenant ID se replace karein
-          find tenants/$CLUSTER/$TENANT -type f -name "*.yaml" -exec sed -i "s/TENANT_PLACEHOLDER/$TENANT/g" {} \;
-          
-          # Domain replace karein (tenant-app mein)
-          sed -i "s/TENANT_PLACEHOLDER\.apporto\.local/${{ inputs.domain }}/g" tenants/$CLUSTER/$TENANT/tenant-app/values.yaml
-          
-          echo "✅ Tenant $TENANT onboarded successfully!"
+          REGION="${{ inputs.region }}"
+          CLUSTER="${{ inputs.cluster }}"
+          TENANT="${{ inputs.tenant_id }}"
+
+          mkdir -p tenants/$REGION/$CLUSTER/$TENANT/tenant-api
+          mkdir -p tenants/$REGION/$CLUSTER/$TENANT/tenant-app
+          mkdir -p tenants/$REGION/$CLUSTER/$TENANT/tenant-dragonfly
+
+          cp tenants/_templates/tenant-api/values.yaml tenants/$REGION/$CLUSTER/$TENANT/tenant-api/
+          cp tenants/_templates/tenant-app/values.yaml tenants/$REGION/$CLUSTER/$TENANT/tenant-app/
+          cp tenants/_templates/tenant-dragonfly/values.yaml tenants/$REGION/$CLUSTER/$TENANT/tenant-dragonfly/
+
+          sed -i "s/TENANT_PLACEHOLDER/$TENANT/g" tenants/$REGION/$CLUSTER/$TENANT/*/values.yaml
+          sed -i "s/DOMAIN_PLACEHOLDER/${{ inputs.domain }}/g" tenants/$REGION/$CLUSTER/$TENANT/*/values.yaml
+
+          echo "✅ Tenant $TENANT created in $REGION/$CLUSTER"
 
       - name: Commit and Push
         run: |
           git config user.name "GitHub Actions Bot"
           git config user.email "actions@github.com"
-          git add tenants/${{ inputs.cluster_name }}/${{ inputs.new_tenant_id }}
-          git commit -m "onboard: tenant-${{ inputs.new_tenant_id }} on cluster-${{ inputs.cluster_name }}"
+          git add tenants/${{ inputs.region }}/${{ inputs.cluster }}/${{ inputs.tenant_id }}
+          git commit -m "onboard: region-${{ inputs.region }} cluster-${{ inputs.cluster }} tenant-${{ inputs.tenant_id }}"
           git push origin main
